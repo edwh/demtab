@@ -34,3 +34,7 @@ Thumbs.db
 
 # Backups
 backup_*.json
+
+# AI Assistant
+.claude/
+CLAUDE.md
