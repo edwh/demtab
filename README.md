@@ -24,7 +24,7 @@ Access the admin panel at `http://[pi-address]:8080` to manage everything:
 - Drag and drop to reorder messages
 
 #### Phone Tab
-- **Call Throttle** - If enabled, detects recent calls (via AnswerBot API)
+- **Call Throttle** - If enabled, detects recent calls (via [AnswerBot](https://github.com/edwh/answerbot-server) API)
 - Shows a "please wait before calling again" message if someone called recently
 - Configurable time window (e.g., 30 minutes)
 - Customizable throttle message
@@ -84,6 +84,28 @@ Copy `.env.example` to `.env` and configure:
 
 - `ANSWERBOT_API_KEY` - Your AnswerBot API key for call throttle feature
 
+### Remote Administration with Tailscale
+
+For secure remote access to your Raspberry Pi, install [Tailscale](https://tailscale.com/):
+
+```bash
+# Install Tailscale on Raspberry Pi
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# Authenticate and connect
+sudo tailscale up
+
+# Get your Tailscale IP address
+tailscale ip -4
+```
+
+Once connected, you can access the admin interface from anywhere using your Tailscale IP:
+
+- **Admin Panel**: `http://[tailscale-ip]:8080`
+- **Display**: `http://[tailscale-ip]:80`
+
+Tailscale provides encrypted, peer-to-peer connections without exposing your Pi to the public internet or requiring port forwarding.
+
 ### Service Management
 
 ```bash
@@ -119,7 +141,7 @@ sudo journalctl -u pi-display.service -f
 
 ## License
 
-Proprietary - For internal use
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
 
