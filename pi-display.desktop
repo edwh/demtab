@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Pi Display
+Exec=/var/www/launch-display.sh
+X-GNOME-Autostart-enabled=true

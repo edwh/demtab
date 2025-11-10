@@ -1,0 +1,24 @@
+{
+  "name": "pi-display-admin",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 3001 --host 0.0.0.0",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^0.11.3",
+    "bootstrap": "^5.3.3",
+    "bootstrap-vue-next": "^0.26.3",
+    "nuxt": "^3.14.159",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.13",
+    "vue-draggable-next": "^2.2.1"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^1.6.1"
+  }
+}

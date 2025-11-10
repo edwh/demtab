@@ -1,0 +1,17 @@
+[Unit]
+Description=Pi Display Server
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/var/www
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

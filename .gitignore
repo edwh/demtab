@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+admin/.output/
+admin/.nuxt/
+admin/dist/
+display/.output/
+display/.nuxt/
+display/dist/
+
+# Database
+messages.db
+messages.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+backup_*.json
