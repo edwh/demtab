@@ -11,6 +11,8 @@ A smart display system for Raspberry Pi that shows scheduled messages and integr
 - **Time-based scheduling** - messages appear only during specified times/days
 - **Real-time clock** with day of week and time period (Morning, Afternoon, Evening, etc.)
 - **Color-coded messages** with optional flashing/cycling colors
+- **Auto-rotate to landscape** - CSS-based rotation for portrait displays
+- **Hidden cursor** - Clean kiosk appearance
 - Automatically refreshes every 30 seconds
 
 ### Admin Interface
@@ -38,8 +40,8 @@ Access the admin panel at `http://[pi-address]:8080` to manage everything:
 
 - **Backend**: Node.js, Express, SQLite
 - **Frontend**: Nuxt 3, Vue 3, Bootstrap Vue Next, Pinia
-- **Display**: Chromium in kiosk mode, landscape orientation
-- **Auto-start**: Systemd service
+- **Display**: Chromium in kiosk mode, CSS-based landscape orientation, hidden cursor
+- **Auto-start**: Systemd service + desktop autostart
 
 ## Quick Setup
 
@@ -49,9 +51,18 @@ npm install
 cd admin && npm install && cd ..
 cd display && npm install && cd ..
 
+# Build frontend applications
+npm run build
+
 # Configure environment
 cp .env.example .env
 # Edit .env and add your ANSWERBOT_API_KEY
+
+# Set up and start the service
+sudo cp pi-display.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable pi-display.service
+sudo systemctl start pi-display.service
 
 # Development mode
 npm run dev           # Backend server (ports 80 & 8080)
@@ -59,7 +70,7 @@ npm run dev:admin     # Admin interface dev server
 npm run dev:display   # Display interface dev server
 ```
 
-See [SETUP.md](SETUP.md) for complete Raspberry Pi installation instructions.
+See [SETUP.md](SETUP.md) for complete Raspberry Pi installation instructions including display rotation and browser autostart.
 
 ## Access Points
 

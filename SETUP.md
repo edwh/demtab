@@ -49,29 +49,20 @@ The system consists of:
 
 #### Configure Display Settings
 
-Edit the config file:
+**Display Rotation**: The display app automatically handles landscape orientation via CSS for portrait displays. No system-level configuration is needed.
+
+If you want to disable the touchscreen, edit the config file:
 ```bash
 sudo nano /boot/firmware/config.txt
 ```
 
-Add the following lines:
+Add the following line:
 ```
-# Disable touchscreen
+# Disable touchscreen (optional)
 disable_touchscreen=1
-
-# Rotate display to landscape (choose one):
-# display_rotate=0  # Normal (default)
-# display_rotate=1  # 90 degrees clockwise
-# display_rotate=2  # 180 degrees
-# display_rotate=3  # 270 degrees (90 degrees counterclockwise)
-
-# For landscape on official 7" touchscreen, typically use:
-display_rotate=3
 ```
 
 Save and exit (Ctrl+X, Y, Enter)
-
-**Note**: The display app also includes CSS-based landscape rotation as a fallback.
 
 #### Disable On-Screen Keyboard
 
@@ -101,7 +92,7 @@ npm --version
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential chromium-browser
+sudo apt-get install -y build-essential chromium
 ```
 
 ## Application Installation

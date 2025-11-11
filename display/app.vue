@@ -146,6 +146,7 @@ onBeforeUnmount(() => {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  cursor: none;
 }
 
 .display-container {
@@ -159,13 +160,13 @@ onBeforeUnmount(() => {
 
   /* Force landscape orientation */
   @media (orientation: portrait) {
-    transform: rotate(90deg);
-    transform-origin: center center;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: rotate(90deg) translate(-50%, -50%);
+    transform-origin: 0 0;
     width: 100vh;
     height: 100vw;
-    position: absolute;
-    top: 0;
-    left: 0;
   }
 }
 

@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
+User=edward
 WorkingDirectory=/var/www
 ExecStart=/usr/bin/node server/index.js
 Restart=always

@@ -10,7 +10,7 @@ while ! curl -s http://localhost:80 > /dev/null; do
 done
 
 # Launch Chromium in kiosk mode
-chromium-browser \
+chromium \
   --kiosk \
   --noerrdialogs \
   --disable-infobars \
