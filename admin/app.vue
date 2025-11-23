@@ -10,6 +10,14 @@
     <!-- Navbar -->
     <BNavbar class="custom-navbar px-3">
       <BNavbarBrand class="navbar-brand-custom"><strong>Tablet Admin</strong></BNavbarBrand>
+      <!-- Motion Status Indicator -->
+      <div v-if="store.motionStatus.pirAvailable" class="motion-indicator mx-3">
+        <span class="motion-dot" :class="{ active: store.motionStatus.motionDetected }"></span>
+        <span class="motion-text">
+          {{ store.motionStatus.motionDetected ? 'Motion' : 'No Motion' }}
+          <small v-if="lastMotionFormatted" class="motion-time">{{ lastMotionFormatted }}</small>
+        </span>
+      </div>
       <BNav pills class="ms-auto nav-pills-custom">
         <BNavItem
           :active="activeTab === 'messages'"
@@ -19,11 +27,11 @@
           Messages
         </BNavItem>
         <BNavItem
-          :active="activeTab === 'phone'"
-          @click="activeTab = 'phone'"
+          :active="activeTab === 'settings'"
+          @click="activeTab = 'settings'"
           class="nav-item-custom"
         >
-          Phone
+          Settings
         </BNavItem>
         <BNavItem
           :active="activeTab === 'backups'"
@@ -31,6 +39,13 @@
           class="nav-item-custom"
         >
           Backups
+        </BNavItem>
+        <BNavItem
+          :active="activeTab === 'motion-stats'"
+          @click="activeTab = 'motion-stats'; loadMotionStats()"
+          class="nav-item-custom"
+        >
+          Motion Stats
         </BNavItem>
       </BNav>
     </BNavbar>
@@ -83,12 +98,21 @@
                               <strong>Schedule:</strong> {{ element.time_start }} - {{ element.time_end }} | {{ element.days }}
                             </small>
                           </div>
-                          <div class="d-flex gap-2 flex-shrink-0 ms-3">
+                          <div class="d-flex gap-2 flex-shrink-0 ms-3 flex-wrap">
                             <BBadge :variant="element.enabled ? 'success' : 'secondary'">
                               {{ element.enabled ? 'Enabled' : 'Disabled' }}
                             </BBadge>
                             <BBadge v-if="element.flash" variant="warning">
                               Flash
+                            </BBadge>
+                            <BBadge v-if="element.motion_activated" variant="info">
+                              Motion
+                            </BBadge>
+                            <BBadge v-if="element.display_mode === 'daytime'" variant="light" class="text-dark">
+                              Day Only
+                            </BBadge>
+                            <BBadge v-if="element.display_mode === 'nighttime'" variant="dark">
+                              Night Only
                             </BBadge>
                           </div>
                         </div>
@@ -109,8 +133,46 @@
           </BCard>
           </div>
 
-          <!-- Phone Tab -->
-          <div v-if="activeTab === 'phone'">
+          <!-- Settings Tab -->
+          <div v-if="activeTab === 'settings'">
+            <!-- Night Time Settings -->
+            <BCard class="mb-4">
+              <BCardTitle>Night Time Settings</BCardTitle>
+              <BCardBody>
+                <p class="text-muted">
+                  Configure when night time begins and ends. During night time, only messages
+                  configured for nighttime or both will display. The screen will turn off if
+                  there are no messages to show.
+                </p>
+
+                <BRow class="mb-3">
+                  <BCol md="6">
+                    <BFormGroup label="Night Starts At" label-for="night-start">
+                      <BFormInput
+                        id="night-start"
+                        v-model="nightStart"
+                        type="time"
+                      />
+                    </BFormGroup>
+                  </BCol>
+                  <BCol md="6">
+                    <BFormGroup label="Night Ends At" label-for="night-end">
+                      <BFormInput
+                        id="night-end"
+                        v-model="nightEnd"
+                        type="time"
+                      />
+                    </BFormGroup>
+                  </BCol>
+                </BRow>
+
+                <BButton variant="primary" @click="saveSettings">
+                  Save Night Time Settings
+                </BButton>
+              </BCardBody>
+            </BCard>
+
+            <!-- Call Throttle Settings -->
             <BCard>
               <BCardTitle>Call Throttle Settings</BCardTitle>
               <BCardBody>
@@ -147,7 +209,7 @@
                 </BFormGroup>
 
                 <BButton variant="primary" @click="saveSettings">
-                  Save Settings
+                  Save Call Throttle Settings
                 </BButton>
               </BCardBody>
             </BCard>
@@ -175,6 +237,71 @@
                     style="display: none"
                     @change="handleFileUpload"
                   />
+                </div>
+              </BCardBody>
+            </BCard>
+          </div>
+
+          <!-- Motion Stats Tab -->
+          <div v-if="activeTab === 'motion-stats'">
+            <BCard>
+              <BCardTitle>Motion-Activated Message Display History</BCardTitle>
+              <BCardBody>
+                <p class="text-muted mb-3">
+                  This grid shows when motion-activated messages were displayed. Each cell represents a 15-minute interval.
+                  Green = no displays, Red = displayed (darker red = more displays).
+                </p>
+
+                <div class="mb-3">
+                  <BFormGroup label="Time Period" label-for="weeks-select">
+                    <BFormSelect id="weeks-select" v-model="weeksBack" @change="loadMotionStats" style="max-width: 200px;">
+                      <option :value="1">Last 1 week</option>
+                      <option :value="2">Last 2 weeks</option>
+                      <option :value="4">Last 4 weeks</option>
+                      <option :value="8">Last 8 weeks</option>
+                    </BFormSelect>
+                  </BFormGroup>
+                </div>
+
+                <!-- Grid Visualization -->
+                <div class="motion-grid-container">
+                  <!-- Time labels (columns) -->
+                  <div class="time-labels">
+                    <div class="day-label-spacer"></div>
+                    <div v-for="hour in 24" :key="hour" class="time-label">
+                      {{ (hour - 1).toString().padStart(2, '0') }}
+                    </div>
+                  </div>
+
+                  <!-- Grid rows (days) -->
+                  <div v-for="(dayName, dayIndex) in dayNames" :key="dayIndex" class="grid-row">
+                    <div class="day-label">{{ dayName }}</div>
+                    <div class="grid-cells">
+                      <div
+                        v-for="slot in 96"
+                        :key="slot"
+                        class="grid-cell"
+                        :style="getCellStyle(dayIndex, slot - 1)"
+                        :title="getCellTooltip(dayIndex, slot - 1)"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="legend mt-3">
+                  <span class="legend-item">
+                    <span class="legend-cell" style="background-color: #28a745;"></span>
+                    No displays
+                  </span>
+                  <span class="legend-item">
+                    <span class="legend-cell" style="background-color: #ffc107;"></span>
+                    Few displays
+                  </span>
+                  <span class="legend-item">
+                    <span class="legend-cell" style="background-color: #dc3545;"></span>
+                    Many displays
+                  </span>
                 </div>
               </BCardBody>
             </BCard>
@@ -223,7 +350,23 @@
                 <BFormCheckbox v-model="form.flash" switch>
                   Flash/Cycle Colors
                 </BFormCheckbox>
+                <BFormCheckbox v-model="form.motion_activated" switch>
+                  Motion Activated Only
+                </BFormCheckbox>
               </div>
+            </BFormGroup>
+          </BCol>
+        </BRow>
+
+        <BRow class="mb-3">
+          <BCol md="6">
+            <BFormGroup label="Display Mode" label-for="display-mode">
+              <BFormSelect id="display-mode" v-model="form.display_mode">
+                <option value="both">Both (Day & Night)</option>
+                <option value="daytime">Daytime Only</option>
+                <option value="nighttime">Nighttime Only</option>
+              </BFormSelect>
+              <small class="text-muted">When should this message be shown?</small>
             </BFormGroup>
           </BCol>
         </BRow>
@@ -278,23 +421,25 @@
     </BModal>
 
     <!-- Backup Prompt Modal -->
-    <BModal v-model="store.showBackupPrompt" title="Backup Reminder" hide-footer>
+    <BModal v-model="store.showBackupPrompt" title="Backup Reminder">
       <p>It's been more than 24 hours since your last backup reminder.</p>
       <p>Would you like to download a backup of your messages?</p>
-      <div class="d-flex gap-2 justify-content-end">
-        <BButton variant="secondary" @click="dismissBackupPrompt">
-          Not Now
-        </BButton>
-        <BButton variant="primary" @click="downloadBackupFromPrompt">
-          Download Backup
-        </BButton>
-      </div>
+      <template #footer>
+        <div class="d-flex gap-2 justify-content-end w-100">
+          <BButton variant="secondary" @click="dismissBackupPrompt">
+            Not Now
+          </BButton>
+          <BButton variant="primary" @click="downloadBackupFromPrompt">
+            Download Backup
+          </BButton>
+        </div>
+      </template>
     </BModal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { VueDraggableNext as draggable } from 'vue-draggable-next';
 import {
   BContainer,
@@ -309,6 +454,7 @@ import {
   BFormTextarea,
   BFormInput,
   BFormCheckbox,
+  BFormSelect,
   BBadge,
   BModal,
   BNavbar,
@@ -322,8 +468,10 @@ import { useMessagesStore } from '~/stores/messages';
 const store = useMessagesStore();
 
 const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const activeTab = ref('messages');
+const weeksBack = ref(4);
 const showMessageModal = ref(false);
 
 // Toast notifications
@@ -356,6 +504,31 @@ const throttleMessage = computed({
   set: (value) => store.settings.call_throttle_message = value
 });
 
+const nightStart = computed({
+  get: () => store.settings.night_start || '22:00',
+  set: (value) => store.settings.night_start = value
+});
+
+const nightEnd = computed({
+  get: () => store.settings.night_end || '07:00',
+  set: (value) => store.settings.night_end = value
+});
+
+const lastMotionFormatted = computed(() => {
+  if (!store.motionStatus.lastMotionTime) return null;
+  const date = new Date(store.motionStatus.lastMotionTime);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+
+  if (diffSecs < 60) return `${diffSecs}s ago`;
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleTimeString();
+});
+
 const form = ref({
   text: '',
   color: '#FFFFFF',
@@ -363,7 +536,9 @@ const form = ref({
   flash: false,
   time_start: '00:00',
   time_end: '23:59',
-  selectedDays: [...daysOfWeek]
+  selectedDays: [...daysOfWeek],
+  display_mode: 'both',
+  motion_activated: false
 });
 
 const fileInput = ref(null);
@@ -382,7 +557,9 @@ function editMessage(message) {
     flash: message.flash === 1,
     time_start: message.time_start,
     time_end: message.time_end,
-    selectedDays: message.days.split(',')
+    selectedDays: message.days.split(','),
+    display_mode: message.display_mode || 'both',
+    motion_activated: message.motion_activated === 1
   };
   showMessageModal.value = true;
 }
@@ -400,7 +577,9 @@ async function saveMessage() {
     flash: form.value.flash ? 1 : 0,
     time_start: form.value.time_start,
     time_end: form.value.time_end,
-    days: form.value.selectedDays.join(',')
+    days: form.value.selectedDays.join(','),
+    display_mode: form.value.display_mode,
+    motion_activated: form.value.motion_activated ? 1 : 0
   };
 
   try {
@@ -426,7 +605,9 @@ function resetForm() {
     flash: false,
     time_start: '00:00',
     time_end: '23:59',
-    selectedDays: [...daysOfWeek]
+    selectedDays: [...daysOfWeek],
+    display_mode: 'both',
+    motion_activated: false
   };
 }
 
@@ -505,10 +686,62 @@ async function saveSettings() {
   }
 }
 
+// Motion Stats functions
+async function loadMotionStats() {
+  await store.fetchMotionGrid(weeksBack.value);
+}
+
+function getCellStyle(dayIndex, slot) {
+  const grid = store.motionGrid;
+  const count = grid[dayIndex]?.[slot] || 0;
+
+  if (count === 0) {
+    return { backgroundColor: '#28a745' }; // Green for no displays
+  }
+
+  // Calculate intensity based on count (more red for more displays)
+  // Max out at around 10 displays
+  const intensity = Math.min(count / 10, 1);
+
+  if (intensity < 0.3) {
+    return { backgroundColor: '#ffc107' }; // Yellow for few
+  } else if (intensity < 0.6) {
+    return { backgroundColor: '#fd7e14' }; // Orange for some
+  } else {
+    return { backgroundColor: '#dc3545' }; // Red for many
+  }
+}
+
+function getCellTooltip(dayIndex, slot) {
+  const grid = store.motionGrid;
+  const count = grid[dayIndex]?.[slot] || 0;
+  const hour = Math.floor(slot / 4);
+  const minute = (slot % 4) * 15;
+  const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  const endMinute = minute + 14;
+  const endTimeStr = `${hour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+
+  return `${dayNames[dayIndex]} ${timeStr}-${endTimeStr}: ${count} display${count !== 1 ? 's' : ''}`;
+}
+
+let motionPollInterval = null;
+
 onMounted(async () => {
   await store.fetchMessages();
   await store.fetchSettings();
   await store.checkBackupPrompt();
+  await store.fetchMotionStatus();
+
+  // Poll motion status every 5 seconds
+  motionPollInterval = setInterval(() => {
+    store.fetchMotionStatus();
+  }, 5000);
+});
+
+onUnmounted(() => {
+  if (motionPollInterval) {
+    clearInterval(motionPollInterval);
+  }
 });
 </script>
 
@@ -582,5 +815,128 @@ onMounted(async () => {
   border: 2px solid #dee2e6;
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+/* Motion Status Indicator */
+.motion-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+
+.motion-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #6c757d;
+  transition: background-color 0.3s ease;
+}
+
+.motion-dot.active {
+  background-color: #28a745;
+  box-shadow: 0 0 8px #28a745;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(40, 167, 69, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+  }
+}
+
+.motion-text {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.motion-time {
+  display: block;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+}
+
+/* Motion Stats Grid */
+.motion-grid-container {
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.time-labels {
+  display: flex;
+  margin-bottom: 4px;
+}
+
+.day-label-spacer {
+  width: 50px;
+  flex-shrink: 0;
+}
+
+.time-label {
+  width: 32px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+
+.grid-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.day-label {
+  width: 50px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #495057;
+  flex-shrink: 0;
+}
+
+.grid-cells {
+  display: flex;
+  gap: 1px;
+}
+
+.grid-cell {
+  width: 7px;
+  height: 14px;
+  border-radius: 1px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.grid-cell:hover {
+  transform: scale(1.5);
+  z-index: 10;
+  position: relative;
+}
+
+.legend {
+  display: flex;
+  gap: 20px;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-cell {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
 }
 </style>

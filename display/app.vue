@@ -1,26 +1,34 @@
 <template>
-  <div class="display-container">
-    <!-- Title Bar -->
-    <div class="title-bar">
-      <div class="day-of-week">{{ store.dayOfWeek }}</div>
-      <div class="clock">{{ store.clockTime }}</div>
-      <div class="time-period">{{ store.timePeriod }}</div>
+  <div class="display-container" :class="{ 'screen-off': store.screenOff }">
+    <!-- Screen Off State - completely blank -->
+    <div v-if="store.screenOff" class="screen-off-overlay" @click="wakeScreen">
+      <!-- Intentionally blank to minimize screen glow -->
     </div>
 
-    <!-- Messages Display -->
-    <div ref="messagesContainer" class="messages-container">
-      <div
-        v-for="(message, index) in store.messages"
-        :key="message.id"
-        class="message"
-        :style="getMessageStyle(message, index)"
-      >
-        {{ message.text }}
+    <!-- Normal Display -->
+    <template v-else>
+      <!-- Title Bar -->
+      <div class="title-bar">
+        <div class="day-of-week">{{ store.dayOfWeek }}</div>
+        <div class="clock">{{ store.clockTime }}</div>
+        <div class="time-period">{{ store.timePeriod }}</div>
       </div>
-      <div v-if="store.messages.length === 0" class="no-messages">
-        No messages to display
+
+      <!-- Messages Display -->
+      <div ref="messagesContainer" class="messages-container">
+        <div
+          v-for="(message, index) in store.messages"
+          :key="message.id"
+          class="message"
+          :style="getMessageStyle(message, index)"
+        >
+          {{ message.text }}
+        </div>
+        <div v-if="store.messages.length === 0" class="no-messages">
+          No messages to display
+        </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -31,7 +39,8 @@ import { useMessagesStore } from '~/stores/messages';
 const store = useMessagesStore();
 
 const messagesContainer = ref(null);
-const flashColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF'];
+// Softer pastel colors for gentler transitions
+const flashColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#87CEEB'];
 const fontSize = ref(48);
 
 let messageRefreshInterval = null;
@@ -104,6 +113,18 @@ function getMessageStyle(message, index) {
   }
 }
 
+// Wake screen on touch/click (simulates motion detection)
+async function wakeScreen() {
+  try {
+    // Simulate motion to wake the display
+    await fetch(`${store.apiBase}/motion/simulate`, { method: 'POST' });
+    // Force refresh messages
+    await store.fetchMessages();
+  } catch (error) {
+    console.error('Error waking screen:', error);
+  }
+}
+
 async function onFetchMessages() {
   await store.fetchMessages();
   await nextTick();
@@ -111,23 +132,29 @@ async function onFetchMessages() {
 }
 
 onMounted(() => {
+  // Connect SSE for real-time screen wake notifications
+  store.connectSSE();
+
   // Initial fetch
   onFetchMessages();
 
-  // Refresh messages every 30 seconds
+  // Refresh messages every 30 seconds (fallback for SSE)
   messageRefreshInterval = setInterval(onFetchMessages, 30000);
 
   // Update clock every second
   clockInterval = setInterval(store.updateClock, 1000);
 
-  // Cycle flash colors every 500ms
-  flashInterval = setInterval(store.cycleFlashColors, 500);
+  // Cycle flash colors every 1500ms for gentler transitions
+  flashInterval = setInterval(store.cycleFlashColors, 1500);
 
   // Adjust font size on window resize
   window.addEventListener('resize', adjustFontSize);
 });
 
 onBeforeUnmount(() => {
+  // Disconnect SSE
+  store.disconnectSSE();
+
   if (messageRefreshInterval) {
     clearInterval(messageRefreshInterval);
   }
@@ -215,12 +242,30 @@ onBeforeUnmount(() => {
   font-weight: bold;
   word-wrap: break-word;
   max-width: 100%;
-  transition: color 0.3s ease;
+  transition: color 1s ease-in-out;
 }
 
 .no-messages {
   font-size: 32px;
   color: #666;
   font-style: italic;
+}
+
+/* Screen off state - minimize light output */
+.screen-off {
+  background-color: #000000 !important;
+}
+
+.screen-off-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000000;
+  z-index: 9999;
+  cursor: none;
 }
 </style>

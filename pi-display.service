@@ -4,14 +4,14 @@ After=network.target
 
 [Service]
 Type=simple
-User=edward
-WorkingDirectory=/var/www
-ExecStart=/usr/bin/node server/index.js
+User=root
+ExecStart=/bin/bash -c 'cd /var/www/demtab 2>/dev/null || cd /var/www; exec node server/index.js'
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 Environment=NODE_ENV=production
+Environment=PATH=/root/.nvm/versions/node/v24.11.1/bin:/usr/local/bin:/usr/bin:/bin
 
 [Install]
 WantedBy=multi-user.target

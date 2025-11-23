@@ -2,7 +2,6 @@ export default defineNuxtConfig({
   ssr: false,
 
   app: {
-    baseURL: '/admin',
     head: {
       title: 'Display Admin',
       meta: [
