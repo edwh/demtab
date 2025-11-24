@@ -270,7 +270,7 @@
           <BButton variant="secondary" @click="closeMessageModal">
             Cancel
           </BButton>
-          <BButton type="submit" form="messageForm" variant="success">
+          <BButton variant="success" @click="saveMessage">
             {{ store.editingMessage ? 'Update Message' : 'Add Message' }}
           </BButton>
         </div>
@@ -278,17 +278,20 @@
     </BModal>
 
     <!-- Backup Prompt Modal -->
-    <BModal v-model="store.showBackupPrompt" title="Backup Reminder" hide-footer>
+    <BModal v-model="store.showBackupPrompt" title="Backup Reminder">
       <p>It's been more than 24 hours since your last backup reminder.</p>
       <p>Would you like to download a backup of your messages?</p>
-      <div class="d-flex gap-2 justify-content-end">
-        <BButton variant="secondary" @click="dismissBackupPrompt">
-          Not Now
-        </BButton>
-        <BButton variant="primary" @click="downloadBackupFromPrompt">
-          Download Backup
-        </BButton>
-      </div>
+
+      <template #footer>
+        <div class="d-flex gap-2 justify-content-end w-100">
+          <BButton variant="secondary" @click="dismissBackupPrompt">
+            Not Now
+          </BButton>
+          <BButton variant="primary" @click="downloadBackupFromPrompt">
+            Download Backup
+          </BButton>
+        </div>
+      </template>
     </BModal>
   </div>
 </template>
@@ -403,15 +406,17 @@ async function saveMessage() {
     days: form.value.selectedDays.join(',')
   };
 
+  const isEditing = !!store.editingMessage;
+
   try {
-    if (store.editingMessage) {
+    if (isEditing) {
       await store.updateMessage(store.editingMessage.id, data);
     } else {
       await store.createMessage(data);
     }
 
     closeMessageModal();
-    showNotification(store.editingMessage ? 'Message updated successfully' : 'Message added successfully');
+    showNotification(isEditing ? 'Message updated successfully' : 'Message added successfully');
   } catch (error) {
     showNotification('Failed to save message', 'danger');
   }

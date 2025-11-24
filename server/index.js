@@ -165,8 +165,10 @@ adminApp.post('/api/messages', (req, res) => {
 });
 
 adminApp.put('/api/messages/:id', (req, res) => {
+  console.log('Update request for id:', req.params.id, 'body:', req.body);
   try {
     api.updateMessage(parseInt(req.params.id), req.body);
+    console.log('Update successful');
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating message:', error);
