@@ -10,9 +10,11 @@ A smart display system for Raspberry Pi that shows scheduled messages and integr
 - Shows messages in **fullscreen** with adaptive font sizing
 - **Time-based scheduling** - messages appear only during specified times/days
 - **Real-time clock** with day of week and time period (Morning, Afternoon, Evening, etc.)
-- **Color-coded messages** with optional flashing/cycling colors
+- **Color-coded messages** with optional gentle cycling colors (soft pastel transitions)
 - **Auto-rotate to landscape** - CSS-based rotation for portrait displays
 - **Hidden cursor** - Clean kiosk appearance
+- **Night mode** - Configurable hours when screen blanks to save power/reduce light
+- **PIR motion detection** - Optional wake-on-motion during night mode (tap screen to wake if no PIR)
 - Automatically refreshes every 30 seconds
 
 ### Admin Interface
@@ -30,6 +32,11 @@ Access the admin panel at `http://[pi-address]:8080` to manage everything:
 - Shows a "please wait before calling again" message if someone called recently
 - Configurable time window (e.g., 30 minutes)
 - Customizable throttle message
+
+#### Settings Tab
+- **Night Mode** - Configure start/end times for screen blanking
+- **Motion Detection** - Enable PIR sensor wake feature
+- **Motion Timeout** - How long to stay awake after motion detected
 
 #### Backups Tab
 - Download backup of all messages (JSON format)
@@ -79,13 +86,15 @@ See [SETUP.md](SETUP.md) for complete Raspberry Pi installation instructions inc
 
 ## Key Features
 
-✅ **Schedule-based messaging** - Show different messages at different times
-✅ **Call throttle integration** - Prevent notification fatigue from frequent calls
-✅ **Easy admin interface** - No technical knowledge required
-✅ **Backup & restore** - Never lose your messages
-✅ **Fullscreen kiosk mode** - Dedicated display with no distractions
-✅ **Auto-start on boot** - Always running, no manual startup
-✅ **Database migrations** - Smooth updates and upgrades
+- **Schedule-based messaging** - Show different messages at different times
+- **Call throttle integration** - Prevent notification fatigue from frequent calls
+- **Easy admin interface** - No technical knowledge required
+- **Night mode** - Screen blanks during configured hours
+- **PIR motion detection** - Wake screen on movement
+- **Backup & restore** - Never lose your messages
+- **Fullscreen kiosk mode** - Dedicated display with no distractions
+- **Auto-start on boot** - Always running, no manual startup
+- **Database migrations** - Smooth updates and upgrades
 
 ## Configuration
 
@@ -129,14 +138,29 @@ sudo systemctl restart pi-display
 sudo journalctl -u pi-display.service -f
 ```
 
+### Motion Sensor Monitoring
+
+```bash
+# Real-time PIR status (requires jq)
+watch -n 1 'curl -s http://localhost:80/api/motion | jq'
+
+# Without jq
+watch -n 1 'curl -s http://localhost:80/api/motion'
+
+# Simulate motion (for testing)
+curl -X POST http://localhost:80/api/motion/simulate
+```
+
 ## Project Structure
 
 ```
-/var/www/
+/var/www/demtab/
 ├── server/                      # Backend API
 │   ├── api.js                  # API routes
 │   ├── db.js                   # Database management
 │   ├── index.js                # Express server
+│   ├── pir.js                  # PIR motion sensor driver
+│   ├── screen.js               # Screen control (DPMS)
 │   └── migrations/             # Database migrations
 ├── admin/                       # Admin interface (Nuxt 3)
 │   ├── app.vue                 # Main admin UI with tabs

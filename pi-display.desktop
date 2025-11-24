@@ -1,5 +1,5 @@
 [Desktop Entry]
 Type=Application
 Name=Pi Display
-Exec=/var/www/launch-display.sh
+Exec=/bin/bash -c 'if [ -x /var/www/demtab/launch-display.sh ]; then /var/www/demtab/launch-display.sh; else /var/www/launch-display.sh; fi'
 X-GNOME-Autostart-enabled=true

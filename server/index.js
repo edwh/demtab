@@ -260,6 +260,45 @@ adminApp.post('/api/backup/restore', (req, res) => {
   }
 });
 
+// Motion status endpoint for admin (same as display)
+adminApp.get('/api/motion', (req, res) => {
+  try {
+    res.json({
+      pirAvailable: api.isPirAvailable(),
+      motionDetected: api.isMotionDetected(),
+      lastMotionTime: api.getLastMotionTime(),
+      isNightTime: api.isNightTime()
+    });
+  } catch (error) {
+    console.error('Error getting motion status:', error);
+    res.status(500).json({ error: 'Failed to get motion status' });
+  }
+});
+
+// Motion display grid data for visualization
+adminApp.get('/api/motion/grid', (req, res) => {
+  try {
+    const weeksBack = parseInt(req.query.weeks) || 4;
+    const grid = api.getMotionDisplayGrid(weeksBack);
+    res.json(grid);
+  } catch (error) {
+    console.error('Error getting motion display grid:', error);
+    res.status(500).json({ error: 'Failed to get motion display grid' });
+  }
+});
+
+// Recent motion display logs
+adminApp.get('/api/motion/logs', (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const logs = api.getRecentMotionDisplayLogs(limit);
+    res.json(logs);
+  } catch (error) {
+    console.error('Error getting motion display logs:', error);
+    res.status(500).json({ error: 'Failed to get motion display logs' });
+  }
+});
+
 adminApp.use(express.static(join(__dirname, '../admin/.output/public')));
 adminApp.get('*', (req, res) => {
   res.sendFile(join(__dirname, '../admin/.output/public/index.html'));
@@ -269,14 +308,101 @@ adminApp.get('*', (req, res) => {
 const displayApp = express();
 displayApp.use(cors());
 
-// Only need active messages endpoint for display
+// SSE clients for real-time updates
+const sseClients = new Set();
+
+// SSE endpoint for real-time screen state updates
+displayApp.get('/api/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  // Send initial connection message
+  res.write('data: {"connected":true}\n\n');
+
+  // Add client to set
+  sseClients.add(res);
+  console.log(`SSE client connected (total: ${sseClients.size})`);
+
+  // Remove client on disconnect
+  req.on('close', () => {
+    sseClients.delete(res);
+    console.log(`SSE client disconnected (total: ${sseClients.size})`);
+  });
+});
+
+// Listen for screen wake events and broadcast to all SSE clients
+api.stateEvents.on('screenWake', (data) => {
+  const message = `data: ${JSON.stringify(data)}\n\n`;
+  for (const client of sseClients) {
+    client.write(message);
+  }
+  console.log(`Broadcast screenWake to ${sseClients.size} clients`);
+});
+
+// Active messages endpoint for display (with night mode and motion state)
 displayApp.get('/api/messages/active', async (req, res) => {
   try {
-    const messages = await api.getActiveMessagesWithThrottle();
-    res.json(messages);
+    const result = await api.getActiveMessagesWithThrottle();
+    res.json(result);
   } catch (error) {
     console.error('Error getting active messages:', error);
     res.status(500).json({ error: 'Failed to get active messages' });
+  }
+});
+
+// Motion status endpoint
+displayApp.get('/api/motion', (req, res) => {
+  try {
+    res.json({
+      pirAvailable: api.isPirAvailable(),
+      motionDetected: api.isMotionDetected(),
+      lastMotionTime: api.getLastMotionTime(),
+      isNightTime: api.isNightTime()
+    });
+  } catch (error) {
+    console.error('Error getting motion status:', error);
+    res.status(500).json({ error: 'Failed to get motion status' });
+  }
+});
+
+// Simulate motion (for testing without actual PIR sensor)
+displayApp.post('/api/motion/simulate', (req, res) => {
+  try {
+    api.setMotionDetected(true);
+    res.json({ success: true, message: 'Motion simulated' });
+  } catch (error) {
+    console.error('Error simulating motion:', error);
+    res.status(500).json({ error: 'Failed to simulate motion' });
+  }
+});
+
+// Screen control endpoint
+displayApp.post('/api/screen/:action', (req, res) => {
+  try {
+    const action = req.params.action;
+    if (action === 'on') {
+      api.controlScreen(true);
+      res.json({ success: true, screenOn: true });
+    } else if (action === 'off') {
+      api.controlScreen(false);
+      res.json({ success: true, screenOn: false });
+    } else {
+      res.status(400).json({ error: 'Invalid action. Use "on" or "off"' });
+    }
+  } catch (error) {
+    console.error('Error controlling screen:', error);
+    res.status(500).json({ error: 'Failed to control screen' });
+  }
+});
+
+displayApp.get('/api/screen', (req, res) => {
+  try {
+    res.json({ screenOff: api.isScreenOff() });
+  } catch (error) {
+    console.error('Error getting screen status:', error);
+    res.status(500).json({ error: 'Failed to get screen status' });
   }
 });
 

@@ -38,3 +38,4 @@ backup_*.json
 # AI Assistant
 .claude/
 CLAUDE.md
+.claude/settings.local.json

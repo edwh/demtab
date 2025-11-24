@@ -6,6 +6,9 @@ export const useMessagesStore = defineStore('messages', () => {
   const messages = ref([])
   const currentTime = ref(new Date())
   const currentFlashIndex = ref(0)
+  const isNightTime = ref(false)
+  const motionDetected = ref(true)
+  const screenOff = ref(false)
 
   // Computed
   const apiBase = computed(() => {
@@ -43,16 +46,69 @@ export const useMessagesStore = defineStore('messages', () => {
     return 'Night'
   })
 
+  // SSE connection for real-time updates
+  let eventSource: EventSource | null = null
+
+  function connectSSE() {
+    if (!process.client) return
+
+    const sseUrl = `http://${window.location.hostname}:80/api/events`
+    eventSource = new EventSource(sseUrl)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.screenOff !== undefined) {
+          console.log('SSE: screen state update', data)
+          screenOff.value = data.screenOff
+          // When screen wakes up, immediately fetch messages
+          if (data.screenOff === false) {
+            fetchMessages()
+          }
+        }
+        if (data.motionDetected !== undefined) {
+          motionDetected.value = data.motionDetected
+        }
+      } catch (error) {
+        console.error('SSE parse error:', error)
+      }
+    }
+
+    eventSource.onerror = () => {
+      console.log('SSE connection lost, will reconnect...')
+      eventSource?.close()
+      // Reconnect after 5 seconds
+      setTimeout(connectSSE, 5000)
+    }
+
+    console.log('SSE connected for real-time updates')
+  }
+
+  function disconnectSSE() {
+    if (eventSource) {
+      eventSource.close()
+      eventSource = null
+    }
+  }
+
   // Actions
   async function fetchMessages() {
     try {
       const response = await fetch(`${apiBase.value}/messages/active`)
-      const newMessages = await response.json()
+      const data = await response.json()
+
+      // Handle new API response format with isNightTime and motionDetected
+      const newMessages = data.messages || data
+      isNightTime.value = data.isNightTime || false
+      motionDetected.value = data.motionDetected !== undefined ? data.motionDetected : true
 
       // Only update if messages changed to avoid unnecessary re-renders
       if (JSON.stringify(messages.value) !== JSON.stringify(newMessages)) {
         messages.value = newMessages
       }
+
+      // Use screenOff from API response (server controls the actual backlight)
+      screenOff.value = data.screenOff || false
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
@@ -71,6 +127,9 @@ export const useMessagesStore = defineStore('messages', () => {
     messages,
     currentTime,
     currentFlashIndex,
+    isNightTime,
+    motionDetected,
+    screenOff,
 
     // Computed
     apiBase,
@@ -81,6 +140,8 @@ export const useMessagesStore = defineStore('messages', () => {
     // Actions
     fetchMessages,
     updateClock,
-    cycleFlashColors
+    cycleFlashColors,
+    connectSSE,
+    disconnectSSE
   }
 })

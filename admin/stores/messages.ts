@@ -9,8 +9,18 @@ export const useMessagesStore = defineStore('messages', () => {
   const settings = ref({
     call_throttle_enabled: '0',
     call_throttle_minutes: '30',
-    call_throttle_message: 'You called Edward a few minutes ago - please wait a bit before calling again'
+    call_throttle_message: 'You called Edward a few minutes ago - please wait a bit before calling again',
+    night_start: '22:00',
+    night_end: '07:00'
   })
+  const motionStatus = ref({
+    pirAvailable: false,
+    motionDetected: false,
+    lastMotionTime: null as string | null,
+    isNightTime: false
+  })
+  const motionGrid = ref<Record<number, Record<number, number>>>({})
+  const motionLogs = ref<any[]>([])
 
   // Computed
   const apiBase = computed(() => {
@@ -205,12 +215,45 @@ export const useMessagesStore = defineStore('messages', () => {
     }
   }
 
+  async function fetchMotionStatus() {
+    try {
+      const response = await fetch(`${apiBase.value}/motion`)
+      const data = await response.json()
+      motionStatus.value = data
+    } catch (error) {
+      console.error('Error fetching motion status:', error)
+    }
+  }
+
+  async function fetchMotionGrid(weeksBack = 4) {
+    try {
+      const response = await fetch(`${apiBase.value}/motion/grid?weeks=${weeksBack}`)
+      const data = await response.json()
+      motionGrid.value = data
+    } catch (error) {
+      console.error('Error fetching motion grid:', error)
+    }
+  }
+
+  async function fetchMotionLogs(limit = 100) {
+    try {
+      const response = await fetch(`${apiBase.value}/motion/logs?limit=${limit}`)
+      const data = await response.json()
+      motionLogs.value = data
+    } catch (error) {
+      console.error('Error fetching motion logs:', error)
+    }
+  }
+
   return {
     // State
     messages,
     showBackupPrompt,
     editingMessage,
     settings,
+    motionStatus,
+    motionGrid,
+    motionLogs,
 
     // Computed
     apiBase,
@@ -229,6 +272,9 @@ export const useMessagesStore = defineStore('messages', () => {
     clearEditingMessage,
     dismissBackupPrompt,
     fetchSettings,
-    updateSettings
+    updateSettings,
+    fetchMotionStatus,
+    fetchMotionGrid,
+    fetchMotionLogs
   }
 })
